@@ -1,6 +1,7 @@
 // === Config ===
 const MELILLA_LAT = 35.2923;
 const MELILLA_LON = -2.9381;
+const APP_VERSION = 'v5';
 
 // === Weather codes to description & emoji ===
 const WEATHER_MAP = {
@@ -31,6 +32,12 @@ function getWeatherInfo(code) {
   return WEATHER_MAP[code] || { desc: 'Desconocido', emoji: '🌡️' };
 }
 
+// Safe number helper
+function num(val, fallback) {
+  const n = Number(val);
+  return isNaN(n) ? (fallback || 0) : n;
+}
+
 // === Date helpers ===
 function formatDate(date) {
   const days = ['Domingo', 'Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes', 'Sabado'];
@@ -44,13 +51,16 @@ function getShortDay(date) {
 }
 
 // === Sport recommendation engine ===
-// recentRainDays: number of consecutive dry days before today (0 = llovio ayer)
 function analyzeSport(conditions, recentRainDays) {
-  // conditions: { tempMax, tempMin, windMax, windAvg, rainTotal, humidity, weatherCode, rainProbability }
-  const { tempMax, tempMin, windMax, windAvg, rainTotal, humidity, weatherCode, rainProbability } = conditions;
+  const tempMax = num(conditions.tempMax);
+  const tempMin = num(conditions.tempMin);
+  const windMax = num(conditions.windMax);
+  const rainTotal = num(conditions.rainTotal);
+  const rainProbability = num(conditions.rainProbability);
+  const weatherCode = num(conditions.weatherCode);
 
   const isRainy = rainTotal > 1 || [61, 63, 65, 80, 81, 82, 95, 96, 99].includes(weatherCode);
-  const isDrizzle = rainTotal > 0 && rainTotal <= 1 || [51, 53, 55].includes(weatherCode);
+  const isDrizzle = (rainTotal > 0 && rainTotal <= 1) || [51, 53, 55].includes(weatherCode);
   const isStormy = [95, 96, 99].includes(weatherCode);
   const isVeryWindy = windMax > 40;
   const isWindy = windMax > 25;
@@ -65,7 +75,6 @@ function analyzeSport(conditions, recentRainDays) {
   let title = '';
   let text = '';
 
-  // Storm = rest
   if (isStormy) {
     title = 'Dia de descanso';
     text = 'Tormenta prevista. Quedate en casa, estira un poco y recupera. Tu cuerpo te lo agradecera.';
@@ -73,7 +82,6 @@ function analyzeSport(conditions, recentRainDays) {
     return { title, text, activities };
   }
 
-  // Heavy rain = rest or indoor
   if (isRainy && rainTotal > 5) {
     title = 'Mejor descansar hoy';
     text = `Se esperan ${rainTotal.toFixed(1)}mm de lluvia. No merece la pena arriesgarse. Dia perfecto para rodillo o descanso.`;
@@ -81,47 +89,40 @@ function analyzeSport(conditions, recentRainDays) {
     return { title, text, activities };
   }
 
-  // === Running: la opcion mas versatil, aguanta lluvia ligera ===
+  // Running
   let runLevel = 'perfect';
-  let runReasons = [];
-  if (isRainy && rainTotal > 3) { runLevel = 'good'; runReasons.push('lluvia moderada'); }
-  else if (isRainy || isDrizzle) { runLevel = 'good'; runReasons.push('algo de lluvia, pero se puede'); }
-  if (isVeryWindy) { runLevel = 'avoid'; runReasons.push('mucho viento'); }
-  else if (isWindy) { runLevel = runLevel === 'perfect' ? 'good' : runLevel; runReasons.push('viento'); }
-  if (isHot) { runLevel = runLevel === 'perfect' ? 'good' : runLevel; runReasons.push('calor'); }
-  if (isCold) { runLevel = runLevel === 'perfect' ? 'good' : runLevel; runReasons.push('frio'); }
+  if (isRainy && rainTotal > 3) { runLevel = 'good'; }
+  else if (isRainy || isDrizzle) { runLevel = 'good'; }
+  if (isVeryWindy) { runLevel = 'avoid'; }
+  else if (isWindy && runLevel === 'perfect') { runLevel = 'good'; }
+  if (isHot && runLevel === 'perfect') { runLevel = 'good'; }
+  if (isCold && runLevel === 'perfect') { runLevel = 'good'; }
 
-  // === Road cycling: bien siempre que carretera seca y viento controlado ===
+  // Road cycling
   let roadLevel = 'perfect';
-  let roadReasons = [];
-  if (isRainy || isDrizzle) { roadLevel = 'avoid'; roadReasons.push('asfalto mojado'); }
-  if (isVeryWindy) { roadLevel = 'avoid'; roadReasons.push('viento peligroso'); }
-  else if (isWindy) { roadLevel = 'good'; roadReasons.push('viento'); }
+  if (isRainy || isDrizzle) { roadLevel = 'avoid'; }
+  if (isVeryWindy) { roadLevel = 'avoid'; }
+  else if (isWindy) { roadLevel = roadLevel === 'perfect' ? 'good' : roadLevel; }
   else if (isModerateWind) { roadLevel = roadLevel === 'perfect' ? 'good' : roadLevel; }
-  if (willRainTonight && !isRainy && !isDrizzle) { roadLevel = roadLevel === 'avoid' ? 'avoid' : 'good'; roadReasons.push('puede llover'); }
-  if (isHot) { roadLevel = roadLevel === 'perfect' ? 'good' : roadLevel; roadReasons.push('calor'); }
+  if (willRainTonight && !isRainy && !isDrizzle && roadLevel !== 'avoid') { roadLevel = 'good'; }
+  if (isHot && roadLevel === 'perfect') { roadLevel = 'good'; }
 
-  // === MTB: solo si el campo lleva dias seco (nada de barro) ===
+  // MTB
   let mtbLevel;
-  let mtbReasons = [];
   if (isRainy || isDrizzle) {
     mtbLevel = 'avoid';
-    mtbReasons.push('barro asegurado');
   } else if (!trailDry) {
     mtbLevel = 'avoid';
-    mtbReasons.push(dryDays === 0 ? 'llovio ayer, campo embarrado' : 'campo aun humedo');
   } else {
     mtbLevel = 'perfect';
-    mtbReasons.push(`${dryDays} dias sin llover, campo seco`);
   }
-  if (mtbLevel === 'perfect' && isVeryWindy) { mtbLevel = 'good'; mtbReasons.push('viento'); }
-  if (mtbLevel === 'perfect' && isHot) { mtbLevel = 'good'; mtbReasons.push('calor'); }
+  if (mtbLevel === 'perfect' && isVeryWindy) { mtbLevel = 'good'; }
+  if (mtbLevel === 'perfect' && isHot) { mtbLevel = 'good'; }
 
-  activities.push({ name: 'Correr', icon: '🏃', level: runLevel, reasons: runReasons });
-  activities.push({ name: 'Bici carretera', icon: '🚴', level: roadLevel, reasons: roadReasons });
-  activities.push({ name: 'MTB', icon: '🚵', level: mtbLevel, reasons: mtbReasons });
+  activities.push({ name: 'Correr', icon: '🏃', level: runLevel });
+  activities.push({ name: 'Bici carretera', icon: '🚴', level: roadLevel });
+  activities.push({ name: 'MTB', icon: '🚵', level: mtbLevel });
 
-  // Generate title and text
   const allPerfect = runLevel === 'perfect' && roadLevel === 'perfect' && mtbLevel === 'perfect';
   const allAvoid = runLevel === 'avoid' && roadLevel === 'avoid' && mtbLevel === 'avoid';
   const bestSport = [
@@ -130,7 +131,7 @@ function analyzeSport(conditions, recentRainDays) {
     { name: 'MTB', level: mtbLevel },
   ].sort((a, b) => {
     const order = { perfect: 0, good: 1, avoid: 2 };
-    return order[a.level] - order[b.level];
+    return (order[a.level] || 2) - (order[b.level] || 2);
   })[0];
 
   if (allPerfect) {
@@ -167,61 +168,51 @@ function analyzeSport(conditions, recentRainDays) {
 // === Render helpers ===
 function renderActivities(container, activities) {
   container.innerHTML = activities.map(a => {
-    const levelText = {
-      perfect: 'Ideal',
-      good: 'Puede',
-      avoid: 'Evitar',
-      rest: 'Descanso',
-    };
-    return `<span class="activity-badge ${a.level}">${a.icon} ${a.name} · ${levelText[a.level]}</span>`;
+    const levelText = { perfect: 'Ideal', good: 'Puede', avoid: 'Evitar', rest: 'Descanso' };
+    return `<span class="activity-badge ${a.level}">${a.icon} ${a.name} · ${levelText[a.level] || '?'}</span>`;
   }).join('');
 }
 
 function renderHourly(container, hourlyData) {
-  // Show hours from 6:00 to 22:00 for tomorrow
   const hours = hourlyData.filter(h => {
     const hour = new Date(h.time).getHours();
     return hour >= 6 && hour <= 22;
   });
-
   container.innerHTML = hours.map(h => {
     const date = new Date(h.time);
-    const hourStr = `${date.getHours()}:00`;
     const info = getWeatherInfo(h.weatherCode);
     return `
       <div class="hour-item">
-        <span class="hour-time">${hourStr}</span>
+        <span class="hour-time">${date.getHours()}:00</span>
         <div class="hour-icon">${info.emoji}</div>
-        <span class="hour-temp">${h.temp.toFixed(0)}°</span>
-        <span class="hour-wind">${h.wind.toFixed(0)}km/h</span>
+        <span class="hour-temp">${num(h.temp).toFixed(0)}°</span>
+        <span class="hour-wind">${num(h.wind).toFixed(0)}km/h</span>
       </div>
     `;
   }).join('');
 }
 
-function renderWeek(container, dailyData, pastRain, todayDryDays) {
+function renderWeek(container, dailyData, todayDryDays) {
   container.innerHTML = dailyData.map((d, i) => {
-    if (i === 0) return ''; // skip today
+    if (i === 0) return '';
     const date = new Date(d.date);
     const info = getWeatherInfo(d.weatherCode);
-    // Calculate dry days for this future day by checking rain chain
     let dryDays = todayDryDays;
     for (let j = 0; j < i; j++) {
-      if (dailyData[j].rainTotal > 0.5) { dryDays = 0; } else { dryDays++; }
+      if (num(dailyData[j].rainTotal) > 0.5) { dryDays = 0; } else { dryDays++; }
     }
     const rec = analyzeSport(d, dryDays);
-    const bestActivity = rec.activities[0];
-
+    const best = rec.activities[0] || { icon: '?', name: '?', level: 'avoid' };
     return `
       <div class="week-day">
         <span class="week-day-name">${getShortDay(date)}</span>
         <span class="week-day-icon">${info.emoji}</span>
         <span class="week-day-sport">
-          <span class="activity-badge ${bestActivity.level}">${bestActivity.icon} ${bestActivity.name}</span>
+          <span class="activity-badge ${best.level}">${best.icon} ${best.name}</span>
         </span>
         <span class="week-day-temps">
-          <span class="high">${d.tempMax.toFixed(0)}°</span>
-          <span class="low"> ${d.tempMin.toFixed(0)}°</span>
+          <span class="high">${num(d.tempMax).toFixed(0)}°</span>
+          <span class="low"> ${num(d.tempMin).toFixed(0)}°</span>
         </span>
       </div>
     `;
@@ -230,69 +221,44 @@ function renderWeek(container, dailyData, pastRain, todayDryDays) {
 
 // === API ===
 async function fetchWeather() {
-  // Main forecast call
-  const params = new URLSearchParams({
-    latitude: MELILLA_LAT,
-    longitude: MELILLA_LON,
-    current: 'temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_gusts_10m',
-    hourly: 'temperature_2m,weather_code,wind_speed_10m,precipitation_probability',
-    daily: 'weather_code,temperature_2m_max,temperature_2m_min,wind_speed_10m_max,wind_gusts_10m_max,precipitation_sum,precipitation_probability_max',
-    timezone: 'Europe/Madrid',
-    forecast_days: 8,
-  });
+  const base = 'https://api.open-meteo.com/v1/forecast';
 
-  const res = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`);
+  // Main forecast
+  const url = `${base}?latitude=${MELILLA_LAT}&longitude=${MELILLA_LON}` +
+    '&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_gusts_10m' +
+    '&hourly=temperature_2m,weather_code,wind_speed_10m,precipitation_probability' +
+    '&daily=weather_code,temperature_2m_max,temperature_2m_min,wind_speed_10m_max,wind_gusts_10m_max,precipitation_sum,precipitation_probability_max' +
+    '&timezone=Europe%2FMadrid&forecast_days=8';
+
+  const res = await fetch(url);
   if (!res.ok) {
     const body = await res.text().catch(() => '');
-    throw new Error(`API ${res.status}: ${body}`);
+    throw new Error(`API ${res.status}: ${body.substring(0, 200)}`);
   }
   const data = await res.json();
 
-  // Separate call for past rain (to calculate dry days for MTB)
+  // Past rain (separate call, fails silently)
   let pastRain = [];
   try {
-    const pastParams = new URLSearchParams({
-      latitude: MELILLA_LAT,
-      longitude: MELILLA_LON,
-      daily: 'precipitation_sum',
-      timezone: 'Europe/Madrid',
-      forecast_days: 1,
-      past_days: 5,
-    });
-    const pastRes = await fetch(`https://api.open-meteo.com/v1/forecast?${pastParams}`);
+    const pastUrl = `${base}?latitude=${MELILLA_LAT}&longitude=${MELILLA_LON}` +
+      '&daily=precipitation_sum&timezone=Europe%2FMadrid&forecast_days=1&past_days=5';
+    const pastRes = await fetch(pastUrl);
     if (pastRes.ok) {
       const pastData = await pastRes.json();
-      pastRain = pastData.daily.precipitation_sum.slice(0, -1); // exclude today (already in main)
+      pastRain = (pastData.daily.precipitation_sum || []).slice(0, -1);
     }
-  } catch (_) {
-    // If past rain fails, we just won't have dry day info
-  }
+  } catch (_) { /* ignore */ }
 
   data._pastRain = pastRain;
   return data;
 }
 
-// Calculate consecutive dry days looking back from today
-// pastRain: array of daily precipitation for past days (most recent last)
-// todayRain: today's precipitation
-function calcDryDaysBefore(pastRain, todayRain) {
-  if (!pastRain || pastRain.length === 0) return 999; // unknown = assume dry
+// Consecutive dry days from past rain array
+function calcDryDaysBefore(pastRain) {
+  if (!pastRain || pastRain.length === 0) return 999;
   let dryDays = 0;
-  // pastRain is ordered oldest→newest, so iterate from end
   for (let i = pastRain.length - 1; i >= 0; i--) {
-    if (pastRain[i] > 0.5) break;
-    dryDays++;
-  }
-  return dryDays;
-}
-
-// For future days, also consider forecast rain between today and target day
-function calcDryDaysForDay(pastRain, dailyPrecip, todayIdx, targetIdx) {
-  // Build a full rain history: past days + forecast days up to target
-  let dryDays = 0;
-  for (let i = targetIdx - 1; i >= 0; i--) {
-    const rain = i < todayIdx ? (pastRain[i] ?? 0) : dailyPrecip[i];
-    if (rain > 0.5) break;
+    if (num(pastRain[i]) > 0.5) break;
     dryDays++;
   }
   return dryDays;
@@ -310,124 +276,104 @@ async function loadWeather() {
 
   try {
     const data = await fetchWeather();
+    const d = data.daily;
+    const c = data.current;
     const pastRain = data._pastRain || [];
 
-    // Set date
     document.getElementById('date').textContent = formatDate(new Date());
 
-    // === Today (index 0, no past_days in main call) ===
-    const current = data.current;
-    const todayInfo = getWeatherInfo(current.weather_code);
-
+    // === Today ===
+    const todayInfo = getWeatherInfo(c.weather_code);
     document.getElementById('todayIcon').textContent = todayInfo.emoji;
-    document.getElementById('tempNow').textContent = `${current.temperature_2m.toFixed(0)}°`;
+    document.getElementById('tempNow').textContent = `${num(c.temperature_2m).toFixed(0)}°`;
     document.getElementById('todayDesc').textContent = todayInfo.desc;
-    document.getElementById('windSpeed').textContent = `${current.wind_speed_10m.toFixed(0)} km/h`;
-    document.getElementById('humidity').textContent = `${current.relative_humidity_2m}%`;
-
-    // Today rain
-    const todayRain = data.daily.precipitation_sum[0];
-    document.getElementById('rain').textContent = `${todayRain.toFixed(1)} mm`;
+    document.getElementById('windSpeed').textContent = `${num(c.wind_speed_10m).toFixed(0)} km/h`;
+    document.getElementById('humidity').textContent = `${num(c.relative_humidity_2m)}%`;
+    document.getElementById('rain').textContent = `${num(d.precipitation_sum[0]).toFixed(1)} mm`;
 
     // Today recommendation
     const todayDryDays = calcDryDaysBefore(pastRain);
-    const todayConditions = {
-      tempMax: data.daily.temperature_2m_max[0],
-      tempMin: data.daily.temperature_2m_min[0],
-      windMax: data.daily.wind_gusts_10m_max[0],
-      windAvg: data.daily.wind_speed_10m_max[0],
-      rainTotal: data.daily.precipitation_sum[0],
-      humidity: 0,
-      weatherCode: data.daily.weather_code[0],
-      rainProbability: data.daily.precipitation_probability_max[0],
-    };
+    const todayRec = analyzeSport({
+      tempMax: d.temperature_2m_max[0],
+      tempMin: d.temperature_2m_min[0],
+      windMax: d.wind_gusts_10m_max[0],
+      windAvg: d.wind_speed_10m_max[0],
+      rainTotal: d.precipitation_sum[0],
+      weatherCode: d.weather_code[0],
+      rainProbability: d.precipitation_probability_max[0],
+    }, todayDryDays);
 
-    const todayRec = analyzeSport(todayConditions, todayDryDays);
     document.getElementById('recTitle').textContent = todayRec.title;
     document.getElementById('recText').textContent = todayRec.text;
     renderActivities(document.getElementById('recActivities'), todayRec.activities);
 
-    // === Tomorrow (index 1) ===
-    const tomorrowInfo = getWeatherInfo(data.daily.weather_code[1]);
-
-    document.getElementById('tomorrowSummary').textContent =
-      `${tomorrowInfo.emoji} ${tomorrowInfo.desc}`;
+    // === Tomorrow ===
+    const tmInfo = getWeatherInfo(d.weather_code[1]);
+    document.getElementById('tomorrowSummary').textContent = `${tmInfo.emoji} ${tmInfo.desc}`;
     document.getElementById('tomorrowTemp').textContent =
-      `${data.daily.temperature_2m_min[1].toFixed(0)}° / ${data.daily.temperature_2m_max[1].toFixed(0)}°`;
+      `${num(d.temperature_2m_min[1]).toFixed(0)}° / ${num(d.temperature_2m_max[1]).toFixed(0)}°`;
     document.getElementById('tomorrowWind').textContent =
-      `${data.daily.wind_speed_10m_max[1].toFixed(0)} km/h (rachas ${data.daily.wind_gusts_10m_max[1].toFixed(0)})`;
+      `${num(d.wind_speed_10m_max[1]).toFixed(0)} km/h (rachas ${num(d.wind_gusts_10m_max[1]).toFixed(0)})`;
     document.getElementById('tomorrowRain').textContent =
-      `${data.daily.precipitation_sum[1].toFixed(1)} mm (${data.daily.precipitation_probability_max[1]}%)`;
+      `${num(d.precipitation_sum[1]).toFixed(1)} mm (${num(d.precipitation_probability_max[1])}%)`;
     document.getElementById('tomorrowHumidity').textContent =
-      `${current.relative_humidity_2m}%`;
+      `${num(c.relative_humidity_2m)}%`;
 
-    // Tomorrow dry days: pastRain + today's rain
-    const tomorrowDryDays = data.daily.precipitation_sum[0] > 0.5 ? 0 : todayDryDays + 1;
-    const tomorrowConditions = {
-      tempMax: data.daily.temperature_2m_max[1],
-      tempMin: data.daily.temperature_2m_min[1],
-      windMax: data.daily.wind_gusts_10m_max[1],
-      windAvg: data.daily.wind_speed_10m_max[1],
-      rainTotal: data.daily.precipitation_sum[1],
-      humidity: 0,
-      weatherCode: data.daily.weather_code[1],
-      rainProbability: data.daily.precipitation_probability_max[1],
-    };
+    const tomorrowDryDays = num(d.precipitation_sum[0]) > 0.5 ? 0 : todayDryDays + 1;
+    const tomorrowRec = analyzeSport({
+      tempMax: d.temperature_2m_max[1],
+      tempMin: d.temperature_2m_min[1],
+      windMax: d.wind_gusts_10m_max[1],
+      windAvg: d.wind_speed_10m_max[1],
+      rainTotal: d.precipitation_sum[1],
+      weatherCode: d.weather_code[1],
+      rainProbability: d.precipitation_probability_max[1],
+    }, tomorrowDryDays);
 
-    const tomorrowRec = analyzeSport(tomorrowConditions, tomorrowDryDays);
     document.getElementById('tomorrowRecTitle').textContent = tomorrowRec.title;
     document.getElementById('tomorrowRecText').textContent = tomorrowRec.text;
     renderActivities(document.getElementById('tomorrowRecActivities'), tomorrowRec.activities);
 
-    // Set border color based on best recommendation
-    const levelColors = { perfect: '#34c759', good: '#ff9500', avoid: '#ff3b30', rest: '#af52de' };
-    document.getElementById('tomorrowRecommendation').style.borderLeftColor =
-      levelColors[tomorrowRec.activities[0]?.level] || '#007aff';
+    // Border colors
+    const lc = { perfect: '#34c759', good: '#ff9500', avoid: '#ff3b30', rest: '#af52de' };
     document.getElementById('recommendation').style.borderLeftColor =
-      levelColors[todayRec.activities[0]?.level] || '#007aff';
+      lc[todayRec.activities[0]?.level] || '#007aff';
+    document.getElementById('tomorrowRecommendation').style.borderLeftColor =
+      lc[tomorrowRec.activities[0]?.level] || '#007aff';
 
     // === Hourly (tomorrow) ===
-    const tomorrowDate = data.daily.time[1];
+    const tmDate = d.time[1];
     const hourlyData = data.hourly.time
       .map((t, i) => ({
         time: t,
         temp: data.hourly.temperature_2m[i],
         weatherCode: data.hourly.weather_code[i],
         wind: data.hourly.wind_speed_10m[i],
-        rainProb: data.hourly.precipitation_probability[i],
       }))
-      .filter(h => h.time.startsWith(tomorrowDate));
-
+      .filter(h => h.time.startsWith(tmDate));
     renderHourly(document.getElementById('hourlyScroll'), hourlyData);
 
     // === Week ===
-    const dailyData = data.daily.time.map((date, i) => ({
+    const dailyData = d.time.map((date, i) => ({
       date,
-      index: i,
-      tempMax: data.daily.temperature_2m_max[i],
-      tempMin: data.daily.temperature_2m_min[i],
-      windMax: data.daily.wind_gusts_10m_max[i],
-      windAvg: data.daily.wind_speed_10m_max[i],
-      rainTotal: data.daily.precipitation_sum[i],
-      humidity: 0,
-      weatherCode: data.daily.weather_code[i],
-      rainProbability: data.daily.precipitation_probability_max[i],
+      tempMax: d.temperature_2m_max[i],
+      tempMin: d.temperature_2m_min[i],
+      windMax: d.wind_gusts_10m_max[i],
+      rainTotal: d.precipitation_sum[i],
+      weatherCode: d.weather_code[i],
+      rainProbability: d.precipitation_probability_max[i],
     }));
+    renderWeek(document.getElementById('weekList'), dailyData, todayDryDays);
 
-    renderWeek(document.getElementById('weekList'), dailyData, pastRain, todayDryDays);
-
-    // Show content
     loading.style.display = 'none';
     content.style.display = 'block';
 
   } catch (err) {
-    console.error('Error loading weather:', err);
+    console.error('Error:', err);
     loading.style.display = 'none';
     errorEl.style.display = 'flex';
-    // Show actual error for debugging
-    errorEl.querySelector('p').textContent = `Error: ${err.message}`;
+    errorEl.querySelector('p').textContent = `Error (${APP_VERSION}): ${err.message}`;
   }
 }
 
-// Init
 loadWeather();
