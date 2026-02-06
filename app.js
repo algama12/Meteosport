@@ -280,14 +280,14 @@ async function loadWeather() {
     document.getElementById('windSpeed').textContent = `${current.wind_speed_10m.toFixed(0)} km/h`;
     document.getElementById('humidity').textContent = `${current.relative_humidity_2m}%`;
 
-    // Today rain from daily
-    const todayRain = data.daily.precipitation_sum[ti];
-    document.getElementById('rain').textContent = `${todayRain.toFixed(1)} mm`;
-
     // Find today's index in the daily array (past_days=3 means today is index 3)
     const todayStr = new Date().toISOString().slice(0, 10);
     const todayIdx = data.daily.time.indexOf(todayStr);
     const ti = todayIdx >= 0 ? todayIdx : 3; // fallback
+
+    // Today rain from daily
+    const todayRain = data.daily.precipitation_sum[ti];
+    document.getElementById('rain').textContent = `${todayRain.toFixed(1)} mm`;
 
     // Today recommendation
     const todayConditions = {
