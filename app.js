@@ -1,7 +1,7 @@
 // === Config ===
 const MELILLA_LAT = 35.2923;
 const MELILLA_LON = -2.9381;
-const APP_VERSION = 'v5';
+const APP_VERSION = 'v6';
 
 // === Weather codes to description & emoji ===
 const WEATHER_MAP = {
@@ -62,9 +62,11 @@ function analyzeSport(conditions, recentRainDays) {
   const isRainy = rainTotal > 1 || [61, 63, 65, 80, 81, 82, 95, 96, 99].includes(weatherCode);
   const isDrizzle = (rainTotal > 0 && rainTotal <= 1) || [51, 53, 55].includes(weatherCode);
   const isStormy = [95, 96, 99].includes(weatherCode);
-  const isVeryWindy = windMax > 40;
-  const isWindy = windMax > 25;
-  const isModerateWind = windMax > 15;
+  // Umbrales para rachas (gusts), que siempre son mas altas que viento sostenido
+  // En Melilla rachas de 40-50 son normales
+  const isVeryWindy = windMax > 65;   // peligroso de verdad
+  const isWindy = windMax > 45;       // molesto pero se puede
+  const isModerateWind = windMax > 30; // algo de viento
   const isCold = tempMin < 5;
   const isHot = tempMax > 35;
   const willRainTonight = rainProbability > 60 || isDrizzle;
@@ -82,28 +84,28 @@ function analyzeSport(conditions, recentRainDays) {
     return { title, text, activities };
   }
 
-  if (isRainy && rainTotal > 5) {
+  if (isRainy && rainTotal > 15) {
     title = 'Mejor descansar hoy';
-    text = `Se esperan ${rainTotal.toFixed(1)}mm de lluvia. No merece la pena arriesgarse. Dia perfecto para rodillo o descanso.`;
+    text = `Se esperan ${rainTotal.toFixed(1)}mm de lluvia. Dia de sofa y rodillo.`;
     activities.push({ name: 'Descanso', icon: '🧘', level: 'rest' });
     return { title, text, activities };
   }
 
-  // Running
+  // Running: casi siempre se puede correr
   let runLevel = 'perfect';
-  if (isRainy && rainTotal > 3) { runLevel = 'good'; }
+  if (isRainy && rainTotal > 8) { runLevel = 'good'; }
   else if (isRainy || isDrizzle) { runLevel = 'good'; }
-  if (isVeryWindy) { runLevel = 'avoid'; }
+  if (isVeryWindy) { runLevel = 'good'; } // incluso con mucho viento, correr se puede
   else if (isWindy && runLevel === 'perfect') { runLevel = 'good'; }
   if (isHot && runLevel === 'perfect') { runLevel = 'good'; }
   if (isCold && runLevel === 'perfect') { runLevel = 'good'; }
 
-  // Road cycling
+  // Road cycling: bien si carretera seca, viento moderado OK en Melilla
   let roadLevel = 'perfect';
   if (isRainy || isDrizzle) { roadLevel = 'avoid'; }
   if (isVeryWindy) { roadLevel = 'avoid'; }
-  else if (isWindy) { roadLevel = roadLevel === 'perfect' ? 'good' : roadLevel; }
-  else if (isModerateWind) { roadLevel = roadLevel === 'perfect' ? 'good' : roadLevel; }
+  else if (isWindy && roadLevel === 'perfect') { roadLevel = 'good'; }
+  // viento moderado es normal en Melilla, no penalizar
   if (willRainTonight && !isRainy && !isDrizzle && roadLevel !== 'avoid') { roadLevel = 'good'; }
   if (isHot && roadLevel === 'perfect') { roadLevel = 'good'; }
 
