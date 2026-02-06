@@ -44,7 +44,8 @@ function getShortDay(date) {
 }
 
 // === Sport recommendation engine ===
-function analyzeSport(conditions) {
+// recentRainDays: number of consecutive dry days before today (0 = llovio ayer)
+function analyzeSport(conditions, recentRainDays) {
   // conditions: { tempMax, tempMin, windMax, windAvg, rainTotal, humidity, weatherCode, rainProbability }
   const { tempMax, tempMin, windMax, windAvg, rainTotal, humidity, weatherCode, rainProbability } = conditions;
 
@@ -56,8 +57,9 @@ function analyzeSport(conditions) {
   const isModerateWind = windMax > 15;
   const isCold = tempMin < 5;
   const isHot = tempMax > 35;
-  const isNice = tempMax >= 15 && tempMax <= 30 && !isRainy && !isVeryWindy;
   const willRainTonight = rainProbability > 60 || isDrizzle;
+  const dryDays = typeof recentRainDays === 'number' ? recentRainDays : 999;
+  const trailDry = dryDays >= 2 && !isRainy && !isDrizzle;
 
   const activities = [];
   let title = '';
@@ -79,18 +81,17 @@ function analyzeSport(conditions) {
     return { title, text, activities };
   }
 
-  // Evaluate each sport
-  // Running
+  // === Running: la opcion mas versatil, aguanta lluvia ligera ===
   let runLevel = 'perfect';
   let runReasons = [];
-  if (isRainy) { runLevel = 'avoid'; runReasons.push('lluvia'); }
-  else if (isDrizzle) { runLevel = 'good'; runReasons.push('posible llovizna'); }
+  if (isRainy && rainTotal > 3) { runLevel = 'good'; runReasons.push('lluvia moderada'); }
+  else if (isRainy || isDrizzle) { runLevel = 'good'; runReasons.push('algo de lluvia, pero se puede'); }
   if (isVeryWindy) { runLevel = 'avoid'; runReasons.push('mucho viento'); }
   else if (isWindy) { runLevel = runLevel === 'perfect' ? 'good' : runLevel; runReasons.push('viento'); }
   if (isHot) { runLevel = runLevel === 'perfect' ? 'good' : runLevel; runReasons.push('calor'); }
   if (isCold) { runLevel = runLevel === 'perfect' ? 'good' : runLevel; runReasons.push('frio'); }
 
-  // Road cycling
+  // === Road cycling: bien siempre que carretera seca y viento controlado ===
   let roadLevel = 'perfect';
   let roadReasons = [];
   if (isRainy || isDrizzle) { roadLevel = 'avoid'; roadReasons.push('asfalto mojado'); }
@@ -100,14 +101,21 @@ function analyzeSport(conditions) {
   if (willRainTonight && !isRainy && !isDrizzle) { roadLevel = roadLevel === 'avoid' ? 'avoid' : 'good'; roadReasons.push('puede llover'); }
   if (isHot) { roadLevel = roadLevel === 'perfect' ? 'good' : roadLevel; roadReasons.push('calor'); }
 
-  // MTB
-  let mtbLevel = 'perfect';
+  // === MTB: solo si el campo lleva dias seco (nada de barro) ===
+  let mtbLevel;
   let mtbReasons = [];
-  if (isRainy && rainTotal > 3) { mtbLevel = 'avoid'; mtbReasons.push('barro'); }
-  else if (isRainy || isDrizzle) { mtbLevel = 'good'; mtbReasons.push('terreno humedo'); }
-  if (isVeryWindy) { mtbLevel = 'good'; mtbReasons.push('viento'); }
-  if (willRainTonight && !isRainy) { mtbLevel = mtbLevel === 'avoid' ? 'avoid' : 'good'; mtbReasons.push('terreno puede estar humedo'); }
-  if (isHot) { mtbLevel = mtbLevel === 'perfect' ? 'good' : mtbLevel; mtbReasons.push('calor'); }
+  if (isRainy || isDrizzle) {
+    mtbLevel = 'avoid';
+    mtbReasons.push('barro asegurado');
+  } else if (!trailDry) {
+    mtbLevel = 'avoid';
+    mtbReasons.push(dryDays === 0 ? 'llovio ayer, campo embarrado' : 'campo aun humedo');
+  } else {
+    mtbLevel = 'perfect';
+    mtbReasons.push(`${dryDays} dias sin llover, campo seco`);
+  }
+  if (mtbLevel === 'perfect' && isVeryWindy) { mtbLevel = 'good'; mtbReasons.push('viento'); }
+  if (mtbLevel === 'perfect' && isHot) { mtbLevel = 'good'; mtbReasons.push('calor'); }
 
   activities.push({ name: 'Correr', icon: '🏃', level: runLevel, reasons: runReasons });
   activities.push({ name: 'Bici carretera', icon: '🚴', level: roadLevel, reasons: roadReasons });
@@ -127,27 +135,27 @@ function analyzeSport(conditions) {
 
   if (allPerfect) {
     title = 'Dia perfecto!';
-    text = `${tempMax.toFixed(0)}°C, sin lluvia y viento suave. Elige lo que te apetezca, cualquier deporte sera un placer.`;
+    text = `${tempMax.toFixed(0)}°C, campo seco, sin lluvia y viento suave. Lo que te pida el cuerpo.`;
   } else if (allAvoid) {
     title = 'Mejor descansar';
-    text = 'Las condiciones no acompanan para ninguna actividad al aire libre. Aprovecha para recuperar.';
+    text = 'Las condiciones no acompanan. Aprovecha para descansar y recuperar.';
     activities.length = 0;
     activities.push({ name: 'Descanso', icon: '🧘', level: 'rest' });
+  } else if ((isRainy || isDrizzle) && runLevel !== 'avoid') {
+    title = 'Dia de lluvia, ponte las zapatillas';
+    text = `Se esperan ${rainTotal.toFixed(1)}mm. Olvida la bici, sal a correr que es lo que mejor aguanta con agua.`;
   } else if (isWindy && !isRainy) {
     title = 'Ojo con el viento';
     const windNote = isVeryWindy
-      ? `Rachas de ${windMax.toFixed(0)} km/h. Olvidate de la bici de carretera.`
+      ? `Rachas de ${windMax.toFixed(0)} km/h. Olvidate de la carretera.`
       : `Viento de ${windMax.toFixed(0)} km/h.`;
     text = `${windNote} ${bestSport.level === 'perfect' ? `Buen dia para ${bestSport.name}.` : `Si puedes, mejor ${bestSport.name}.`}`;
-  } else if (isRainy && !isVeryWindy) {
-    title = 'Dia de lluvia';
-    text = `Se esperan ${rainTotal.toFixed(1)}mm. ${mtbLevel !== 'avoid' ? 'Si no te importa el barro, la MTB aguanta bien.' : 'Mejor quedarse en casa hoy.'}`;
-  } else if (isDrizzle) {
-    title = 'Posible llovizna';
-    text = `Algo de agua pero nada grave. ${bestSport.level !== 'avoid' ? `Buen dia para ${bestSport.name}.` : 'Ve preparado por si acaso.'}`;
+  } else if (!trailDry && !isRainy && roadLevel !== 'avoid') {
+    title = 'Campo humedo, tira de carretera';
+    text = `Ha llovido hace poco y el campo estara embarrado. Buen dia para bici de carretera${runLevel === 'perfect' ? ' o correr' : ''}.`;
   } else if (isHot) {
     title = 'Cuidado con el calor';
-    text = `${tempMax.toFixed(0)}°C previstas. Hidratate bien y sal temprano. ${bestSport.name === 'correr' ? 'Si corres, mejor a primera hora.' : ''}`;
+    text = `${tempMax.toFixed(0)}°C previstas. Hidratate bien y sal temprano.`;
   } else {
     title = 'Buen dia para entrenar';
     text = `Condiciones aceptables. ${bestSport.level === 'perfect' ? `Dia ideal para ${bestSport.name}.` : `La mejor opcion es ${bestSport.name}.`}`;
@@ -191,12 +199,13 @@ function renderHourly(container, hourlyData) {
   }).join('');
 }
 
-function renderWeek(container, dailyData) {
+function renderWeek(container, dailyData, todayIdx, dailyDates, dailyRain) {
   container.innerHTML = dailyData.map((d, i) => {
-    if (i === 0) return ''; // skip today
+    if (i <= todayIdx) return ''; // skip past days and today
     const date = new Date(d.date);
     const info = getWeatherInfo(d.weatherCode);
-    const rec = analyzeSport(d);
+    const dryDays = calcDryDaysBefore(dailyDates, dailyRain, d.index);
+    const rec = analyzeSport(d, dryDays);
     const bestActivity = rec.activities[0];
 
     return `
@@ -225,11 +234,24 @@ async function fetchWeather() {
     daily: 'weather_code,temperature_2m_max,temperature_2m_min,wind_speed_10m_max,wind_gusts_10m_max,precipitation_sum,precipitation_probability_max,relative_humidity_2m_max',
     timezone: 'Europe/Madrid',
     forecast_days: 8,
+    past_days: 3,
   });
 
   const res = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`);
   if (!res.ok) throw new Error(`API error: ${res.status}`);
   return res.json();
+}
+
+// Calculate consecutive dry days before a given day index
+// dailyDates: array of date strings, dailyRain: array of precipitation_sum
+// dayIndex: the index of the target day in the combined (past+forecast) array
+function calcDryDaysBefore(dailyDates, dailyRain, dayIndex) {
+  let dryDays = 0;
+  for (let i = dayIndex - 1; i >= 0; i--) {
+    if (dailyRain[i] > 0.5) break; // >0.5mm counts as rain
+    dryDays++;
+  }
+  return dryDays;
 }
 
 // === Main ===
@@ -259,28 +281,34 @@ async function loadWeather() {
     document.getElementById('humidity').textContent = `${current.relative_humidity_2m}%`;
 
     // Today rain from daily
-    const todayRain = data.daily.precipitation_sum[0];
+    const todayRain = data.daily.precipitation_sum[ti];
     document.getElementById('rain').textContent = `${todayRain.toFixed(1)} mm`;
+
+    // Find today's index in the daily array (past_days=3 means today is index 3)
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const todayIdx = data.daily.time.indexOf(todayStr);
+    const ti = todayIdx >= 0 ? todayIdx : 3; // fallback
 
     // Today recommendation
     const todayConditions = {
-      tempMax: data.daily.temperature_2m_max[0],
-      tempMin: data.daily.temperature_2m_min[0],
-      windMax: data.daily.wind_gusts_10m_max[0],
-      windAvg: data.daily.wind_speed_10m_max[0],
-      rainTotal: data.daily.precipitation_sum[0],
-      humidity: data.daily.relative_humidity_2m_max[0],
-      weatherCode: data.daily.weather_code[0],
-      rainProbability: data.daily.precipitation_probability_max[0],
+      tempMax: data.daily.temperature_2m_max[ti],
+      tempMin: data.daily.temperature_2m_min[ti],
+      windMax: data.daily.wind_gusts_10m_max[ti],
+      windAvg: data.daily.wind_speed_10m_max[ti],
+      rainTotal: data.daily.precipitation_sum[ti],
+      humidity: data.daily.relative_humidity_2m_max[ti],
+      weatherCode: data.daily.weather_code[ti],
+      rainProbability: data.daily.precipitation_probability_max[ti],
     };
 
-    const todayRec = analyzeSport(todayConditions);
+    const todayDryDays = calcDryDaysBefore(data.daily.time, data.daily.precipitation_sum, ti);
+    const todayRec = analyzeSport(todayConditions, todayDryDays);
     document.getElementById('recTitle').textContent = todayRec.title;
     document.getElementById('recText').textContent = todayRec.text;
     renderActivities(document.getElementById('recActivities'), todayRec.activities);
 
     // === Tomorrow ===
-    const tomorrowIdx = 1;
+    const tomorrowIdx = ti + 1;
     const tomorrowInfo = getWeatherInfo(data.daily.weather_code[tomorrowIdx]);
 
     document.getElementById('tomorrowSummary').textContent =
@@ -294,7 +322,7 @@ async function loadWeather() {
     document.getElementById('tomorrowHumidity').textContent =
       `${data.daily.relative_humidity_2m_max[tomorrowIdx]}%`;
 
-    // Tomorrow recommendation
+    // Tomorrow recommendation (dry days count includes today's forecast)
     const tomorrowConditions = {
       tempMax: data.daily.temperature_2m_max[tomorrowIdx],
       tempMin: data.daily.temperature_2m_min[tomorrowIdx],
@@ -306,7 +334,8 @@ async function loadWeather() {
       rainProbability: data.daily.precipitation_probability_max[tomorrowIdx],
     };
 
-    const tomorrowRec = analyzeSport(tomorrowConditions);
+    const tomorrowDryDays = calcDryDaysBefore(data.daily.time, data.daily.precipitation_sum, tomorrowIdx);
+    const tomorrowRec = analyzeSport(tomorrowConditions, tomorrowDryDays);
     document.getElementById('tomorrowRecTitle').textContent = tomorrowRec.title;
     document.getElementById('tomorrowRecText').textContent = tomorrowRec.text;
     renderActivities(document.getElementById('tomorrowRecActivities'), tomorrowRec.activities);
@@ -338,6 +367,7 @@ async function loadWeather() {
     // === Week ===
     const dailyData = data.daily.time.map((date, i) => ({
       date,
+      index: i,
       tempMax: data.daily.temperature_2m_max[i],
       tempMin: data.daily.temperature_2m_min[i],
       windMax: data.daily.wind_gusts_10m_max[i],
@@ -348,7 +378,7 @@ async function loadWeather() {
       rainProbability: data.daily.precipitation_probability_max[i],
     }));
 
-    renderWeek(document.getElementById('weekList'), dailyData);
+    renderWeek(document.getElementById('weekList'), dailyData, ti, data.daily.time, data.daily.precipitation_sum);
 
     // Show content
     loading.style.display = 'none';
