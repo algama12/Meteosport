@@ -1,0 +1,480 @@
+/* === Reset & Base === */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --bg: #f2f2f7;
+  --card: #ffffff;
+  --text: #1c1c1e;
+  --text-secondary: #8e8e93;
+  --accent: #007aff;
+  --green: #34c759;
+  --orange: #ff9500;
+  --red: #ff3b30;
+  --yellow: #ffcc00;
+  --purple: #af52de;
+  --radius: 16px;
+  --shadow: 0 2px 12px rgba(0,0,0,0.08);
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.app {
+  max-width: 430px;
+  margin: 0 auto;
+  min-height: 100vh;
+  padding: 0 16px 32px;
+}
+
+/* === Header === */
+.header {
+  padding: 20px 0 8px;
+  text-align: center;
+}
+
+.location {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.icon-pin {
+  width: 18px;
+  height: 18px;
+  color: var(--accent);
+}
+
+.date {
+  color: var(--text-secondary);
+  font-size: 13px;
+  margin-top: 4px;
+  font-weight: 400;
+}
+
+/* === Loading === */
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 60vh;
+  gap: 16px;
+  color: var(--text-secondary);
+  font-size: 15px;
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--bg);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* === Cards === */
+.card {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow);
+}
+
+.section-title {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  margin-bottom: 14px;
+}
+
+/* === Today Card === */
+.today-card {
+  background: linear-gradient(135deg, #007aff 0%, #5856d6 100%);
+  color: #fff;
+  text-align: center;
+  padding: 28px 20px;
+}
+
+.today-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.today-icon {
+  font-size: 56px;
+  line-height: 1;
+}
+
+.today-temp {
+  display: flex;
+  flex-direction: column;
+}
+
+.temp-now {
+  font-size: 52px;
+  font-weight: 300;
+  line-height: 1;
+}
+
+.temp-label {
+  font-size: 13px;
+  opacity: 0.7;
+  font-weight: 400;
+}
+
+.today-desc {
+  font-size: 17px;
+  font-weight: 500;
+  margin-bottom: 20px;
+  opacity: 0.95;
+}
+
+.today-stats {
+  display: flex;
+  justify-content: space-around;
+  border-top: 1px solid rgba(255,255,255,0.2);
+  padding-top: 16px;
+}
+
+.stat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stat svg {
+  width: 20px;
+  height: 20px;
+  opacity: 0.8;
+}
+
+.stat-value {
+  font-size: 15px;
+  font-weight: 600;
+  display: block;
+}
+
+.stat-label {
+  font-size: 11px;
+  opacity: 0.7;
+  display: block;
+}
+
+/* === Recommendation Card === */
+.recommendation-card {
+  border-left: 4px solid var(--accent);
+  padding: 20px 20px 20px 24px;
+}
+
+.rec-title {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.rec-text {
+  font-size: 15px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-bottom: 16px;
+}
+
+.rec-activities {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.activity-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 100px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.activity-badge.perfect {
+  background: #e8f9ed;
+  color: #1a7d34;
+}
+
+.activity-badge.good {
+  background: #fff8e1;
+  color: #b37800;
+}
+
+.activity-badge.avoid {
+  background: #ffeaea;
+  color: #c62828;
+}
+
+.activity-badge.rest {
+  background: #f3e8ff;
+  color: #7b1fa2;
+}
+
+/* === Tomorrow Card === */
+.tomorrow-summary {
+  font-size: 15px;
+  color: var(--text-secondary);
+  margin-bottom: 14px;
+  line-height: 1.4;
+}
+
+.tomorrow-details {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.detail {
+  background: var(--bg);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+.detail-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.detail-value {
+  font-size: 17px;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+/* === Hourly Scroll === */
+.hourly-card {
+  padding-right: 0;
+}
+
+.hourly-scroll {
+  display: flex;
+  gap: 2px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  padding-right: 20px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.hourly-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.hour-item {
+  flex: 0 0 auto;
+  width: 62px;
+  text-align: center;
+  padding: 10px 6px;
+  border-radius: 12px;
+  transition: background 0.2s;
+}
+
+.hour-item.current {
+  background: var(--accent);
+  color: #fff;
+}
+
+.hour-time {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.hour-item.current .hour-time {
+  color: rgba(255,255,255,0.8);
+}
+
+.hour-icon {
+  font-size: 22px;
+  margin: 6px 0;
+}
+
+.hour-temp {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.hour-wind {
+  font-size: 10px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.hour-item.current .hour-wind {
+  color: rgba(255,255,255,0.7);
+}
+
+/* === Week List === */
+.week-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.week-day {
+  display: flex;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--bg);
+}
+
+.week-day:last-child {
+  border-bottom: none;
+}
+
+.week-day-name {
+  width: 40px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.week-day-icon {
+  font-size: 22px;
+  width: 40px;
+  text-align: center;
+}
+
+.week-day-sport {
+  flex: 1;
+  text-align: right;
+}
+
+.week-day-sport .activity-badge {
+  font-size: 12px;
+  padding: 4px 10px;
+}
+
+.week-day-temps {
+  width: 80px;
+  text-align: right;
+  font-size: 15px;
+}
+
+.week-day-temps .high {
+  font-weight: 600;
+}
+
+.week-day-temps .low {
+  color: var(--text-secondary);
+}
+
+/* === Error === */
+.error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 60vh;
+  gap: 16px;
+  color: var(--text-secondary);
+  font-size: 15px;
+  text-align: center;
+}
+
+.error button {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  padding: 12px 32px;
+  border-radius: 100px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+/* === Footer === */
+.footer {
+  text-align: center;
+  padding: 16px 0 8px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+/* === Animations === */
+.content .card {
+  animation: fadeUp 0.5s ease both;
+}
+
+.content .card:nth-child(1) { animation-delay: 0s; }
+.content .card:nth-child(2) { animation-delay: 0.08s; }
+.content .card:nth-child(3) { animation-delay: 0.16s; }
+.content .card:nth-child(4) { animation-delay: 0.24s; }
+.content .card:nth-child(5) { animation-delay: 0.32s; }
+.content .card:nth-child(6) { animation-delay: 0.40s; }
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* === Dark mode === */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1c1c1e;
+    --card: #2c2c2e;
+    --text: #f2f2f7;
+    --text-secondary: #98989d;
+    --shadow: 0 2px 12px rgba(0,0,0,0.3);
+  }
+
+  .activity-badge.perfect {
+    background: rgba(52, 199, 89, 0.15);
+    color: #4cd964;
+  }
+
+  .activity-badge.good {
+    background: rgba(255, 149, 0, 0.15);
+    color: #ffb340;
+  }
+
+  .activity-badge.avoid {
+    background: rgba(255, 59, 48, 0.15);
+    color: #ff6961;
+  }
+
+  .activity-badge.rest {
+    background: rgba(175, 82, 222, 0.15);
+    color: #c77dff;
+  }
+
+  .detail {
+    background: #3a3a3c;
+  }
+}

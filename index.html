@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MelillaSport Weather</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <!-- Header -->
+    <header class="header">
+      <div class="location">
+        <svg class="icon-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+          <circle cx="12" cy="10" r="3"/>
+        </svg>
+        <span>Melilla</span>
+      </div>
+      <p class="date" id="date"></p>
+    </header>
+
+    <!-- Loading -->
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <p>Analizando el tiempo...</p>
+    </div>
+
+    <!-- Main Content -->
+    <main class="content" id="content" style="display:none">
+
+      <!-- Today summary -->
+      <section class="card today-card">
+        <div class="today-header">
+          <div class="today-icon" id="todayIcon"></div>
+          <div class="today-temp">
+            <span class="temp-now" id="tempNow"></span>
+            <span class="temp-label">ahora</span>
+          </div>
+        </div>
+        <p class="today-desc" id="todayDesc"></p>
+        <div class="today-stats">
+          <div class="stat">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20"/><path d="M9.64 5.64a5 5 0 1 0 7.07 7.07"/></svg>
+            <div>
+              <span class="stat-value" id="windSpeed"></span>
+              <span class="stat-label">Viento</span>
+            </div>
+          </div>
+          <div class="stat">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>
+            <div>
+              <span class="stat-value" id="humidity"></span>
+              <span class="stat-label">Humedad</span>
+            </div>
+          </div>
+          <div class="stat">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 16.58A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 15.25"/><line x1="8" y1="15" x2="8" y2="21"/><line x1="12" y1="17" x2="12" y2="23"/><line x1="16" y1="15" x2="16" y2="21"/></svg>
+            <div>
+              <span class="stat-value" id="rain"></span>
+              <span class="stat-label">Lluvia</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Recommendation -->
+      <section class="card recommendation-card" id="recommendation">
+        <h2 class="rec-title" id="recTitle"></h2>
+        <p class="rec-text" id="recText"></p>
+        <div class="rec-activities" id="recActivities"></div>
+      </section>
+
+      <!-- Tomorrow forecast -->
+      <section class="card tomorrow-card">
+        <h3 class="section-title">Prevision manana</h3>
+        <div class="tomorrow-summary" id="tomorrowSummary"></div>
+        <div class="tomorrow-details">
+          <div class="detail">
+            <span class="detail-label">Temp</span>
+            <span class="detail-value" id="tomorrowTemp"></span>
+          </div>
+          <div class="detail">
+            <span class="detail-label">Viento</span>
+            <span class="detail-value" id="tomorrowWind"></span>
+          </div>
+          <div class="detail">
+            <span class="detail-label">Lluvia</span>
+            <span class="detail-value" id="tomorrowRain"></span>
+          </div>
+          <div class="detail">
+            <span class="detail-label">Humedad</span>
+            <span class="detail-value" id="tomorrowHumidity"></span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tomorrow recommendation -->
+      <section class="card recommendation-card" id="tomorrowRecommendation">
+        <h2 class="rec-title" id="tomorrowRecTitle"></h2>
+        <p class="rec-text" id="tomorrowRecText"></p>
+        <div class="rec-activities" id="tomorrowRecActivities"></div>
+      </section>
+
+      <!-- Hourly chart for tomorrow -->
+      <section class="card hourly-card">
+        <h3 class="section-title">Manana por horas</h3>
+        <div class="hourly-scroll" id="hourlyScroll"></div>
+      </section>
+
+      <!-- Week overview -->
+      <section class="card week-card">
+        <h3 class="section-title">Proximos 7 dias</h3>
+        <div class="week-list" id="weekList"></div>
+      </section>
+
+    </main>
+
+    <!-- Error -->
+    <div class="error" id="error" style="display:none">
+      <p>No se pudo cargar el tiempo. Comprueba tu conexion.</p>
+      <button onclick="loadWeather()">Reintentar</button>
+    </div>
+
+    <footer class="footer">
+      <p>Datos: Open-Meteo API</p>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
